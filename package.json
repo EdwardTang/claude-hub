@@ -1,7 +1,7 @@
 {
-  "name": "claude-github-webhook",
-  "version": "0.1.1",
-  "description": "A webhook endpoint for Claude to perform git and GitHub actions",
+  "name": "oppie-ai-agent",
+  "version": "0.1.0",
+  "description": "AI-powered GitHub development agent using MCTS and LangGraph for intelligent task planning and execution",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -32,7 +32,12 @@
     "security:fix": "npm audit fix",
     "setup:dev": "husky install",
     "setup:hooks": "husky",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "db:init": "tsx scripts/init-databases.ts",
+    "db:seed": "tsx scripts/seed-data.ts",
+    "services:up": "docker compose up -d neo4j redis minio",
+    "services:down": "docker compose down",
+    "dev:services": "concurrently \"npm run services:up\" \"npm run dev:watch\""
   },
   "dependencies": {
     "@octokit/rest": "^22.0.0",
@@ -45,7 +50,12 @@
     "pino": "^9.7.0",
     "pino-pretty": "^13.0.0",
     "typescript": "^5.8.3",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "@langchain/langgraph": "^0.2.34",
+    "neo4j-driver": "^5.28.0",
+    "redis": "^4.7.0",
+    "@aws-sdk/client-s3": "^3.736.0",
+    "minio": "^8.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",
@@ -70,7 +80,9 @@
     "prettier": "^3.0.0",
     "supertest": "^7.1.1",
     "ts-jest": "^29.3.4",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "concurrently": "^9.2.0"
   },
   "engines": {
     "node": ">=20.0.0"
