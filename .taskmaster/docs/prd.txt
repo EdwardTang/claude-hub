@@ -1,0 +1,602 @@
+# Oppie MVP System Design Document
+
+## Executive Summary
+
+Oppie MVP is an AGI-inspired autonomous programming system that combines Claude Code's capabilities with AlphaZero-style Monte Carlo Tree Search (MCTS) to create a self-improving code generation platform. Building upon the existing claude-hub webhook infrastructure, Oppie extends it with LangGraph orchestration, parallel branch exploration via Claude Squad, and a Neo4j-backed decision tree for intelligent backtracking and solution optimization.
+
+The system deploys Claude Code as a GitHub bot that not only responds to mentions but actively explores multiple solution paths in parallel, learns from failures, and autonomously selects the best implementation strategy through tree search algorithms.
+
+## Architecture Overview
+
+### Core Philosophy: LLM + AlphaZero
+
+Following Demis Hassabis's vision, Oppie implements a two-layer intelligence architecture:
+
+1. **World Model Layer (LLM)**: Claude Code provides the base intelligence for understanding code, generating solutions, and evaluating states
+2. **Planning/Search Layer (MCTS)**: LATS algorithm orchestrates multiple exploration branches, evaluates outcomes, and guides the search toward optimal solutions
+
+### System Components
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           User Interface                             │
+│                    (GitHub Issues/PRs + PWA Dashboard)              │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Ingress Layer                                │
+│                   (Express.js Webhook Server)                        │
+│              - GitHub webhook authentication                         │
+│              - Request validation & sanitization                     │
+│              - Job queue management (Redis)                          │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Orchestration Layer                             │
+│                    (LangGraph + LATS/MCTS)                          │
+│         - Tree search coordination                                   │
+│         - Branch selection via UCT algorithm                         │
+│         - State management & checkpointing                          │
+│         - Parallel execution control                                 │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Execution Layer                                 │
+│                  (Claude Squad Multi-Agent)                          │
+│         - Tmux session management                                    │
+│         - Git worktree isolation                                     │
+│         - Claude Code instance orchestration                         │
+│         - Test execution & validation                                │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Storage Layer                                 │
+│          ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│          │    Neo4j     │  │    Redis     │  │  S3/MinIO    │     │
+│          │ (Tree Graph) │  │ (Job Queue)  │  │ (Snapshots)  │     │
+│          └──────────────┘  └──────────────┘  └──────────────┘     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Detailed Component Design
+
+### 1. Webhook Ingress (Enhanced claude-hub)
+
+Leverages existing claude-hub infrastructure with extensions:
+
+```typescript
+// Enhanced webhook processor
+class OppieWebhookProcessor extends WebhookProcessor {
+  async processGitHubEvent(event: GitHubWebhookEvent) {
+    // Existing claude-hub logic for auth, validation
+    await super.processGitHubEvent(event);
+    
+    // New: Route to MCTS orchestrator for complex tasks
+    if (this.requiresTreeSearch(event)) {
+      await this.enqueueTreeSearchJob({
+        taskId: uuid(),
+        repository: event.repository,
+        command: event.comment.body,
+        context: this.extractContext(event),
+        searchConfig: {
+          maxDepth: 6,
+          parallelBranches: 8,
+          timeoutMs: 3600000 // 1 hour
+        }
+      });
+    }
+  }
+}
+```
+
+### 2. LangGraph Orchestration Layer
+
+Implements the LATS algorithm with LangGraph's state management:
+
+```python
+# Core LATS implementation
+class LATSOrchestrator:
+    def __init__(self, policy_model, value_model, neo4j_driver):
+        self.policy = policy_model  # Claude Code wrapper
+        self.value = value_model    # Test-based evaluation
+        self.graph_db = neo4j_driver
+        self.builder = StateGraph(OppieStateSchema)
+        self._setup_graph()
+    
+    def _setup_graph(self):
+        # Decision node: MCTS selection
+        self.builder.add_node("decision", self.mcts_select)
+        
+        # Parallel branch execution nodes
+        for i in range(8):
+            self.builder.add_node(
+                f"branch_{i}", 
+                lambda s, idx=i: self.execute_branch(s, idx)
+            )
+        
+        # Aggregation and backpropagation
+        self.builder.add_node("aggregate", self.aggregate_results)
+        
+        # Conditional edges for tree exploration
+        self.builder.add_conditional_edges(
+            "decision",
+            self.select_branches_uct,
+            [f"branch_{i}" for i in range(8)]
+        )
+        
+        # Loop or terminate
+        self.builder.add_conditional_edges(
+            "aggregate",
+            self.check_termination,
+            {"decision": "decision", END: END}
+        )
+    
+    def select_branches_uct(self, state):
+        """UCT-based branch selection"""
+        c = 1.4  # Exploration constant
+        branches = []
+        
+        for edge in state.candidate_edges:
+            ucb_score = (
+                edge.avg_reward + 
+                c * sqrt(log(state.total_visits) / edge.visits)
+            )
+            branches.append((edge, ucb_score))
+        
+        # Select top k branches for parallel exploration
+        selected = sorted(branches, key=lambda x: x[1], reverse=True)
+        return [b[0].name for b in selected[:state.parallel_count]]
+```
+
+### 3. Claude Squad Integration
+
+Manages parallel Claude Code instances with git worktree isolation:
+
+```bash
+#!/bin/bash
+# Enhanced run_parallel.sh for Oppie
+
+setup_oppie_branches() {
+    local num_agents=$1
+    local task_id=$2
+    
+    for i in $(seq 0 $((num_agents-1))); do
+        # Create isolated worktree
+        branch="oppie-${task_id}-agent-${i}"
+        worktree="../oppie-worktrees/${branch}"
+        git worktree add -B "$branch" "$worktree" main
+        
+        # Launch Claude Code in tmux with Oppie config
+        tmux new-session -d -s "oppie_${task_id}_${i}" \
+            "cd $worktree && \
+             export OPPIE_BRANCH_ID=${i} && \
+             export OPPIE_TASK_ID=${task_id} && \
+             export OPPIE_WEBHOOK_URL=${OPPIE_API_URL}/trace && \
+             claude --model claude-3-opus --compiler \
+                    --config ./oppie-agent.yaml \
+                    --on-action-end 'curl -X POST $OPPIE_WEBHOOK_URL \
+                        -H \"Content-Type: application/json\" \
+                        -d \"{\\\"branch\\\": $OPPIE_BRANCH_ID, \
+                              \\\"action\\\": \\\"$ACTION_NAME\\\", \
+                              \\\"diff\\\": \\\"$(git diff | base64)\\\"}\"'"
+    done
+}
+```
+
+### 4. Neo4j Graph Storage
+
+Persistent decision tree with rich metadata:
+
+```cypher
+// Graph schema
+CREATE CONSTRAINT unique_node_id ON (n:DecisionNode) ASSERT n.id IS UNIQUE;
+CREATE INDEX node_reward_idx FOR (n:DecisionNode) ON (n.reward);
+CREATE INDEX edge_action_idx FOR ()-[r:EXPLORED]->() ON (r.action);
+
+// Example tree structure
+(:DecisionNode {
+    id: "root_task_123",
+    state: "initial",
+    code_snapshot: "s3://oppie/snapshots/abc123",
+    tests_passed: 0,
+    tests_total: 10
+})
+-[:EXPLORED {
+    action: "implement_auth_module",
+    branch_id: 3,
+    timestamp: datetime(),
+    token_cost: 1250
+}]->
+(:DecisionNode {
+    id: "node_task_123_d1_b3",
+    state: "auth_implemented",
+    code_snapshot: "s3://oppie/snapshots/def456",
+    tests_passed: 7,
+    tests_total: 10,
+    reward: 0.7,
+    visits: 1
+})
+```
+
+### 5. State Management & Rollback
+
+LangGraph checkpointing with Neo4j backing:
+
+```python
+class OppieStateManager:
+    def save_checkpoint(self, state: OppieState, node_id: str):
+        # Save to S3/MinIO
+        snapshot_url = self.snapshot_storage.save({
+            'code': state.current_code,
+            'git_sha': state.git_commit,
+            'test_results': state.test_results,
+            'agent_memory': state.agent_context
+        })
+        
+        # Record in Neo4j
+        self.neo4j.run("""
+            MATCH (n:DecisionNode {id: $node_id})
+            SET n.snapshot_url = $url,
+                n.checkpoint_id = $checkpoint_id
+        """, node_id=node_id, url=snapshot_url, 
+            checkpoint_id=state.langgraph_checkpoint)
+    
+    def restore_from_node(self, node_id: str):
+        # Fetch from Neo4j
+        result = self.neo4j.run("""
+            MATCH (n:DecisionNode {id: $node_id})
+            RETURN n.snapshot_url as url, 
+                   n.checkpoint_id as checkpoint
+        """, node_id=node_id).single()
+        
+        # Restore snapshot
+        snapshot = self.snapshot_storage.load(result['url'])
+        
+        # Reset git worktree
+        subprocess.run(['git', 'reset', '--hard', snapshot['git_sha']])
+        
+        # Resume LangGraph from checkpoint
+        return self.graph.resume(checkpoint_id=result['checkpoint'])
+```
+
+### 6. Intelligent Features
+
+#### a) Structured Imagination Module
+
+```python
+class ImaginationModule:
+    def __init__(self, llm, code_analyzer):
+        self.llm = llm
+        self.analyzer = code_analyzer
+    
+    async def imagine_scenarios(self, current_state, proposed_actions):
+        """Pre-simulate actions without execution"""
+        imagined_outcomes = []
+        
+        for action in proposed_actions:
+            # LLM predicts likely outcome
+            prediction = await self.llm.predict(
+                f"Given current code state and action '{action}', "
+                f"predict: 1) likely changes, 2) test results, "
+                f"3) potential issues"
+            )
+            
+            # Static analysis for validation
+            analysis = self.analyzer.analyze_hypothetical(
+                current_state.code, 
+                prediction.changes
+            )
+            
+            imagined_outcomes.append({
+                'action': action,
+                'predicted_success': prediction.test_pass_probability,
+                'confidence': self._calculate_confidence(prediction, analysis),
+                'risks': analysis.identified_risks
+            })
+        
+        return sorted(imagined_outcomes, 
+                     key=lambda x: x['predicted_success'] * x['confidence'],
+                     reverse=True)
+```
+
+#### b) Self-Play Training Loop
+
+```python
+class SelfPlayTrainer:
+    def __init__(self, oppie_system):
+        self.system = oppie_system
+        self.challenge_db = ChallengeDatabase()
+    
+    async def generate_training_data(self):
+        while True:
+            # Generate challenge based on weak areas
+            challenge = self.create_challenge_from_failures()
+            
+            # Two Oppie instances compete
+            results = await asyncio.gather(
+                self.system.solve_challenge(challenge, agent_id="challenger"),
+                self.system.solve_challenge(challenge, agent_id="defender")
+            )
+            
+            # Store successful strategies
+            for result in results:
+                if result.success:
+                    self.challenge_db.store_solution(
+                        challenge_id=challenge.id,
+                        solution=result.solution,
+                        metrics=result.metrics
+                    )
+            
+            # Create harder variant
+            challenge = self.mutate_challenge(challenge, results)
+```
+
+#### c) Episodic Memory System
+
+```python
+class EpisodicMemory:
+    def __init__(self, vector_db, neo4j):
+        self.vector_db = vector_db  # For semantic search
+        self.graph_db = neo4j       # For structured queries
+    
+    def remember_solution(self, task, solution, context):
+        # Embed for similarity search
+        embedding = self.embed_task(task)
+        self.vector_db.insert({
+            'id': solution.id,
+            'embedding': embedding,
+            'task_description': task.description,
+            'solution_summary': solution.summary
+        })
+        
+        # Graph relationships for pattern mining
+        self.graph_db.run("""
+            CREATE (t:Task {description: $desc})
+            CREATE (s:Solution {id: $sid, code: $code})
+            CREATE (t)-[:SOLVED_BY {
+                success: $success,
+                iterations: $iters,
+                time_ms: $time
+            }]->(s)
+        """, desc=task.description, sid=solution.id,
+            code=solution.code, success=solution.success,
+            iters=solution.iterations, time=solution.time_ms)
+    
+    def recall_similar(self, new_task, limit=5):
+        # Semantic similarity search
+        similar = self.vector_db.search(
+            self.embed_task(new_task), 
+            limit=limit
+        )
+        
+        # Enrich with graph context
+        enriched = []
+        for match in similar:
+            context = self.graph_db.run("""
+                MATCH (t:Task)-[r:SOLVED_BY]->(s:Solution {id: $id})
+                OPTIONAL MATCH (s)-[:SIMILAR_TO]->(s2:Solution)
+                RETURN t, r, s, collect(s2) as variants
+            """, id=match.id).single()
+            
+            enriched.append({
+                'similarity': match.score,
+                'task': context['t'],
+                'solution': context['s'],
+                'variants': context['variants'],
+                'success_metrics': context['r']
+            })
+        
+        return enriched
+```
+
+## Security & Performance Considerations
+
+### Security Enhancements
+
+1. **Container Isolation**: Each Claude Code instance runs in a separate Docker container with:
+   - Read-only root filesystem
+   - No network access except to approved endpoints
+   - CPU/memory limits
+   - Seccomp profiles
+
+2. **Code Execution Sandboxing**: Test execution happens in nested containers with:
+   - Temporary filesystems
+   - No access to host resources
+   - Time-boxed execution
+
+3. **Credential Management**: Enhanced AWS credential provider with:
+   - Automatic rotation
+   - Least-privilege IAM policies
+   - Audit logging
+
+### Performance Optimizations
+
+1. **Intelligent Pruning**: MCTS branches are pruned based on:
+   - Early test failures
+   - Static analysis warnings
+   - Historical failure patterns
+
+2. **Caching Strategy**:
+   - Redis for hot decision paths
+   - S3 for code snapshots with CDN
+   - Neo4j query result caching
+
+3. **Resource Management**:
+   - Dynamic scaling of Claude instances (2-16 based on load)
+   - Automatic cleanup of stale worktrees
+   - Memory-mapped file sharing for large codebases
+
+## Deployment Architecture
+
+### Container Orchestration
+
+```yaml
+# docker-compose.yml excerpt
+services:
+  oppie-orchestrator:
+    build: ./services/orchestrator
+    environment:
+      - LANGGRAPH_CHECKPOINT_STORE=neo4j
+      - PARALLEL_BRANCHES=${OPPIE_PARALLEL_BRANCHES:-8}
+      - MAX_SEARCH_DEPTH=${OPPIE_MAX_DEPTH:-6}
+    depends_on:
+      - neo4j
+      - redis
+      - minio
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+  
+  claude-squad-controller:
+    build: ./services/claude-squad
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./worktrees:/worktrees
+    environment:
+      - MAX_CONCURRENT_AGENTS=16
+      - AGENT_TIMEOUT_MS=300000
+  
+  neo4j:
+    image: neo4j:5-enterprise
+    environment:
+      - NEO4J_AUTH=neo4j/oppie-secure-pass
+      - NEO4J_dbms_memory_heap_max__size=2G
+      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+    volumes:
+      - neo4j_data:/data
+  
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+```
+
+### Production Considerations
+
+1. **High Availability**:
+   - Multi-region deployment with read replicas
+   - Neo4j cluster for graph storage
+   - Redis Sentinel for queue resilience
+
+2. **Monitoring**:
+   - Prometheus metrics for all services
+   - Grafana dashboards for tree search visualization
+   - Custom alerts for stuck branches or resource exhaustion
+
+3. **Backup Strategy**:
+   - Hourly Neo4j backups with point-in-time recovery
+   - S3 versioning for all code snapshots
+   - Disaster recovery runbooks
+
+## PWA Dashboard Design
+
+### Core Features
+
+1. **Tree Visualization**:
+   - React Flow for interactive decision tree
+   - Real-time updates via WebSocket
+   - Node details on hover/click
+   - Branch comparison tools
+
+2. **Metrics Dashboard**:
+   - Token usage per branch
+   - Success rate trends
+   - Time-to-solution metrics
+   - Cost analysis
+
+3. **Control Panel**:
+   - Manual intervention points
+   - Branch priority adjustment
+   - Resource allocation controls
+   - Emergency stop functionality
+
+### Technical Stack
+
+```typescript
+// Frontend architecture
+export const OppieApp = () => {
+  const { nodes, edges } = useTreeData();
+  const { metrics } = useMetrics();
+  
+  return (
+    <Dashboard>
+      <TreeVisualizer>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodeClick={handleNodeInspection}
+          nodeTypes={customNodeTypes}
+        />
+      </TreeVisualizer>
+      
+      <MetricsPanel>
+        <TokenUsageChart data={metrics.tokens} />
+        <SuccessRateGauge value={metrics.successRate} />
+        <CostProjection branches={metrics.activeBranches} />
+      </MetricsPanel>
+      
+      <ControlPanel>
+        <BranchController />
+        <ResourceAllocator />
+        <EmergencyStop />
+      </ControlPanel>
+    </Dashboard>
+  );
+};
+```
+
+## Migration Path from Current claude-hub
+
+### Phase 1: Foundation (Week 1-2)
+1. Fork claude-hub repository
+2. Add LangGraph dependencies
+3. Implement basic LATS orchestrator
+4. Set up Neo4j and test basic tree storage
+
+### Phase 2: Integration (Week 3-4)
+1. Integrate Claude Squad for parallel execution
+2. Implement state checkpointing
+3. Add basic tree visualization
+4. Test with simple coding tasks
+
+### Phase 3: Intelligence (Week 5-6)
+1. Add imagination module
+2. Implement basic self-play
+3. Set up episodic memory
+4. Refine MCTS parameters
+
+### Phase 4: Production (Week 7-8)
+1. Security hardening
+2. Performance optimization
+3. Monitoring and alerting
+4. Documentation and training
+
+## Success Metrics
+
+1. **Technical Metrics**:
+   - 80% success rate on standard coding tasks
+   - <5 minute average time to working solution
+   - <$1 cost per successfully merged PR
+
+2. **Quality Metrics**:
+   - 95% of generated code passes linting
+   - 90% of solutions require no human modification
+   - Zero security vulnerabilities introduced
+
+3. **Business Metrics**:
+   - 10x productivity improvement for routine tasks
+   - 50% reduction in time-to-merge for features
+   - 90% developer satisfaction score
+
+## Conclusion
+
+Oppie MVP represents a paradigm shift in automated programming, moving from single-shot code generation to intelligent, exploratory problem-solving. By combining Claude Code's language understanding with AlphaZero-inspired search algorithms, we create a system that not only writes code but learns from its attempts, explores multiple solutions in parallel, and continuously improves its strategies.
+
+The architecture leverages battle-tested components (claude-hub, LangGraph, Neo4j) while introducing novel capabilities (MCTS for code, structured imagination, episodic memory) that position Oppie as a true AGI-inspired programming assistant.
+
+With this design, Oppie can tackle complex, multi-step programming challenges that would overwhelm traditional code generation tools, all while maintaining the reliability and security required for production deployment.
+
+**"Good night, Oppie"** — and let the nightshift engineer explore the solution space while you sleep.

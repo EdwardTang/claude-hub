@@ -1,0 +1,34 @@
+{
+  "session_id": "20732d28-e931-47bf-8435-49399596af00",
+  "transcript_path": "/home/tyb90/.claude/projects/-mnt-c-Users-tyb90-Projects-oppie/20732d28-e931-47bf-8435-49399596af00.jsonl",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "TodoWrite",
+  "tool_input": {
+    "todos": [
+      {
+        "content": "Initialize Task Master AI project with PRD file",
+        "status": "completed",
+        "priority": "high",
+        "id": "1"
+      },
+      {
+        "content": "Read and understand the PRD file at .cursor/docs/oppie/system_design_oppie_mvp.md",
+        "status": "completed",
+        "priority": "high",
+        "id": "2"
+      },
+      {
+        "content": "Initialize Task Master AI in the project root",
+        "status": "completed",
+        "priority": "high",
+        "id": "3"
+      },
+      {
+        "content": "Parse PRD file to generate initial tasks",
+        "status": "completed",
+        "priority": "high",
+        "id": "4"
+      }
+    ]
+  }
+}

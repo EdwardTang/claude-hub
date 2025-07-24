@@ -1,0 +1,881 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Project Repository and Base Infrastructure",
+        "description": "Fork the claude-hub repository and set up the initial project structure with required dependencies for Oppie MVP.",
+        "details": "1. Fork the existing claude-hub repository\n2. Update package.json with new dependencies:\n   - LangGraph\n   - Neo4j driver\n   - Redis client\n   - AWS SDK for S3/MinIO\n3. Create directory structure for new components:\n   ```\n   /services\n     /orchestrator      # LangGraph MCTS implementation\n     /claude-squad      # Parallel Claude execution\n     /webhook-enhanced  # Extended webhook handler\n   /storage\n     /neo4j            # Graph storage configs\n     /minio            # Object storage configs\n   /dashboard          # PWA frontend\n   ```\n4. Set up Docker Compose for local development\n5. Configure CI/CD pipeline for testing",
+        "testStrategy": "1. Verify all dependencies install correctly\n2. Ensure Docker Compose brings up all services\n3. Validate repository structure matches design document\n4. Run smoke tests to verify basic connectivity between services",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Fork claude-hub repository and configure Git settings",
+            "description": "Fork the existing claude-hub repository, clone locally, update remote origins, and configure basic Git settings for the Oppie project",
+            "dependencies": [],
+            "details": "1. Fork claude-hub repository on GitHub\n2. Clone forked repository locally\n3. Update remote origins (origin -> forked repo, upstream -> original)\n4. Configure .gitignore for Node.js, Docker, and IDE-specific files\n5. Update README.md with Oppie project information\n6. Create initial commit with repository setup",
+            "status": "in-progress",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Configure package.json with required dependencies",
+            "description": "Update package.json with all necessary dependencies for LangGraph, Neo4j, Redis, AWS SDK, and development tools",
+            "dependencies": [
+              "1.1"
+            ],
+            "details": "1. Add production dependencies:\n   - langgraph\n   - neo4j-driver\n   - redis\n   - aws-sdk (or @aws-sdk/client-s3 for v3)\n   - minio (for local S3 compatibility)\n2. Add development dependencies:\n   - typescript\n   - @types/node\n   - jest\n   - nodemon\n3. Configure npm scripts for development, testing, and building\n4. Set Node.js version requirements in engines field\n5. Run npm install to verify all dependencies resolve correctly",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Create standardized directory structure",
+            "description": "Establish the complete directory structure for services, storage configurations, and shared utilities",
+            "dependencies": [
+              "1.1"
+            ],
+            "details": "1. Create main service directories:\n   /services/orchestrator (LangGraph MCTS)\n   /services/claude-squad (Parallel Claude execution)\n   /services/webhook-enhanced (Extended webhook handler)\n2. Create storage configuration directories:\n   /storage/neo4j (Graph storage configs)\n   /storage/minio (Object storage configs)\n   /storage/redis (Cache configs)\n3. Create shared directories:\n   /shared/types (TypeScript definitions)\n   /shared/utils (Common utilities)\n   /tests (Test files mirroring src structure)\n4. Add index.ts files and basic exports to establish module structure",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Configure Docker Compose for all services",
+            "description": "Set up Docker Compose configuration with Neo4j, Redis, MinIO, and application services with proper networking and volume management",
+            "dependencies": [
+              "1.2",
+              "1.3"
+            ],
+            "details": "1. Create docker-compose.yml with services:\n   - neo4j (with APOC plugins, auth, and data persistence)\n   - redis (with persistence and appropriate memory limits)\n   - minio (S3-compatible storage with default buckets)\n   - app service (Node.js application with hot reload)\n2. Configure service networking and port mapping\n3. Set up volume mounts for data persistence\n4. Create .env.example with required environment variables\n5. Add health checks for all services\n6. Test docker-compose up brings up all services successfully",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement CI/CD pipeline configuration",
+            "description": "Set up GitHub Actions workflow for automated testing, linting, and deployment with proper environment management",
+            "dependencies": [
+              "1.2",
+              "1.3",
+              "1.4"
+            ],
+            "details": "1. Create .github/workflows/ci.yml:\n   - Node.js matrix testing (16.x, 18.x, 20.x)\n   - Lint with ESLint and Prettier\n   - Run Jest unit tests with coverage\n   - Integration tests with Docker services\n2. Create .github/workflows/deploy.yml for production deployment\n3. Configure environment-specific secrets and variables\n4. Add status badges to README.md\n5. Set up branch protection rules requiring CI to pass\n6. Test pipeline runs successfully on sample commits",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Enhance Webhook Processor",
+        "description": "Extend the existing claude-hub webhook processor to support MCTS orchestration for complex tasks.",
+        "details": "1. Create a new class that extends the existing WebhookProcessor\n2. Implement the requiresTreeSearch method to identify complex tasks:\n   ```typescript\n   private requiresTreeSearch(event: GitHubWebhookEvent): boolean {\n     // Check for specific command patterns\n     const command = event.comment.body.toLowerCase();\n     return command.includes('/oppie') || \n            command.includes('complex task') ||\n            this.estimateComplexity(command) > COMPLEXITY_THRESHOLD;\n   }\n   ```\n3. Add enqueueTreeSearchJob method to send tasks to Redis queue:\n   ```typescript\n   private async enqueueTreeSearchJob(job: TreeSearchJob): Promise<void> {\n     const client = await this.getRedisClient();\n     await client.xAdd(\n       'oppie:jobs',\n       '*',\n       { payload: JSON.stringify(job) }\n     );\n     console.log(`Enqueued tree search job ${job.taskId}`);\n   }\n   ```\n4. Implement context extraction to gather repository information\n5. Add configuration for max depth, parallel branches, and timeouts",
+        "testStrategy": "1. Unit tests for requiresTreeSearch with various input patterns\n2. Integration test with mocked Redis to verify job enqueuing\n3. End-to-end test with GitHub webhook payload\n4. Verify correct extraction of context from different event types",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create WebhookProcessorEnhanced class structure",
+            "description": "Extend the existing WebhookProcessor class with proper TypeScript inheritance and base architecture for MCTS orchestration support",
+            "dependencies": [],
+            "details": "Create new class WebhookProcessorEnhanced extends WebhookProcessor with proper constructor, method overrides, and interfaces. Set up dependency injection for Redis client and configuration management. Establish proper error handling patterns and logging structure.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement requiresTreeSearch detection method",
+            "description": "Build the core logic to identify complex tasks that require MCTS orchestration based on GitHub webhook event analysis",
+            "dependencies": [
+              "2.1"
+            ],
+            "details": "Implement requiresTreeSearch method with pattern matching for '/oppie' commands, complexity estimation algorithm using AST analysis for code changes, and configurable threshold system. Include support for PR size analysis, file change patterns, and comment complexity scoring.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Integrate Redis queue for MCTS job management",
+            "description": "Set up Redis-based job queueing system for orchestrating complex tasks through the MCTS pipeline",
+            "dependencies": [
+              "2.1"
+            ],
+            "details": "Configure Redis client with connection pooling, implement job serialization/deserialization for GitHub webhook events, create queue management with priority levels and retry logic. Include job status tracking and cleanup mechanisms for completed/failed jobs.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Build context extraction logic for different event types",
+            "description": "Extract and prepare contextual information from various GitHub webhook events for MCTS processing",
+            "dependencies": [
+              "2.2"
+            ],
+            "details": "Implement context extractors for PR events (diff analysis, file changes, comments), issue events (description parsing, label analysis), and push events (commit analysis, branch context). Create standardized context format for downstream MCTS processing.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement configuration management system",
+            "description": "Create flexible configuration system for complexity thresholds, Redis settings, and MCTS orchestration parameters",
+            "dependencies": [],
+            "details": "Build configuration schema with environment variable support, validation rules for complexity thresholds and Redis connection settings. Include hot-reload capability for threshold adjustments and proper configuration validation with error reporting.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Create comprehensive integration testing suite",
+            "description": "Develop end-to-end tests covering webhook processing, Redis integration, and context extraction with mocked GitHub events",
+            "dependencies": [
+              "2.1",
+              "2.2",
+              "2.3",
+              "2.4",
+              "2.5"
+            ],
+            "details": "Create test fixtures for various GitHub webhook payloads, mock Redis for job queue testing, unit tests for requiresTreeSearch with edge cases, integration tests for complete webhook-to-queue flow. Include performance benchmarks and error scenario testing.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Implement LangGraph Orchestration Core",
+        "description": "Create the core LangGraph orchestration layer that implements the LATS algorithm with state management.",
+        "details": "1. Set up LangGraph with OppieStateSchema:\n   ```python\n   class OppieStateSchema(BaseModel):\n       task_id: str\n       repository: str\n       current_code: Dict[str, str]  # filename -> content\n       git_commit: str\n       test_results: Optional[Dict[str, Any]]\n       agent_context: Dict[str, Any]\n       parallel_count: int = 8\n       total_visits: int = 0\n       candidate_edges: List[Dict[str, Any]]\n       langgraph_checkpoint: Optional[str]\n   ```\n2. Implement the LATSOrchestrator class with MCTS selection logic\n3. Create the state graph with decision, branch execution, and aggregation nodes\n4. Implement UCT-based branch selection algorithm\n5. Add conditional edges for tree exploration\n6. Implement termination condition checking\n7. Add state serialization/deserialization for checkpointing",
+        "testStrategy": "1. Unit tests for UCT algorithm with mock reward values\n2. Test state transitions with sample inputs\n3. Verify correct branch selection under different scenarios\n4. Test termination conditions\n5. Benchmark performance with simulated workloads",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define OppieStateSchema",
+            "description": "Implement the core state schema class with all required fields for MCTS state management",
+            "dependencies": [],
+            "details": "Create OppieStateSchema with fields: task_id, repository, current_code, git_commit, test_results, agent_context, parallel_count, total_visits, candidate_edges, langgraph_checkpoint. Include proper typing and validation.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement LATSOrchestrator class structure",
+            "description": "Create the main orchestrator class with initialization and core method stubs",
+            "dependencies": [
+              "3.1"
+            ],
+            "details": "Build LATSOrchestrator class with __init__, select_action, expand_node, backup_values, and is_terminal methods. Set up basic configuration and state management.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement MCTS selection algorithm",
+            "description": "Create the core Monte Carlo Tree Search selection mechanism",
+            "dependencies": [
+              "3.2"
+            ],
+            "details": "Implement tree traversal logic using UCB1 formula for node selection. Handle exploration vs exploitation balance with configurable parameters.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Configure state graph structure",
+            "description": "Set up the LangGraph state graph with nodes and edges for MCTS operations",
+            "dependencies": [
+              "3.2"
+            ],
+            "details": "Define graph nodes for selection, expansion, simulation, and backup phases. Configure state transitions and checkpoint management.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement UCT-based branch selection",
+            "description": "Create the Upper Confidence bounds applied to Trees algorithm for branch selection",
+            "dependencies": [
+              "3.3"
+            ],
+            "details": "Implement UCB1 calculation with visit counts and reward values. Add exploration parameter tuning and statistical confidence bounds.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement conditional edge logic",
+            "description": "Create conditional transitions between graph states based on MCTS algorithm requirements",
+            "dependencies": [
+              "3.4",
+              "3.5"
+            ],
+            "details": "Define edge conditions for state transitions including termination checks, expansion criteria, and backup propagation rules.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Implement termination conditions",
+            "description": "Create logic to determine when MCTS search should terminate",
+            "dependencies": [
+              "3.6"
+            ],
+            "details": "Implement termination based on visit count limits, time constraints, convergence criteria, and solution quality thresholds.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 8,
+            "title": "Implement state serialization",
+            "description": "Create serialization and deserialization methods for state persistence",
+            "dependencies": [
+              "3.1",
+              "3.7"
+            ],
+            "details": "Implement JSON serialization for OppieStateSchema, checkpoint creation/restoration, and state history management for debugging.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Set Up Neo4j Graph Storage",
+        "description": "Implement the Neo4j-backed decision tree storage with schema design and CRUD operations.",
+        "details": "1. Create Neo4j schema with constraints and indexes:\n   ```cypher\n   CREATE CONSTRAINT unique_node_id ON (n:DecisionNode) ASSERT n.id IS UNIQUE;\n   CREATE INDEX node_reward_idx FOR (n:DecisionNode) ON (n.reward);\n   CREATE INDEX edge_action_idx FOR ()-[r:EXPLORED]->() ON (r.action);\n   ```\n2. Implement NodeRepository class:\n   ```typescript\n   class NodeRepository {\n     constructor(private neo4j: Neo4j.Driver) {}\n     \n     async createRootNode(taskId: string, initialState: string): Promise<string> {\n       const session = this.neo4j.session();\n       try {\n         const result = await session.run(\n           `CREATE (n:DecisionNode {\n              id: $id,\n              state: $state,\n              tests_passed: 0,\n              tests_total: 0,\n              created_at: datetime()\n            }) RETURN n.id as id`,\n           { id: `root_${taskId}`, state: initialState }\n         );\n         return result.records[0].get('id');\n       } finally {\n         await session.close();\n       }\n     }\n     \n     // Additional methods for node/edge operations\n   }\n   ```\n3. Implement methods for adding explored edges\n4. Add query methods for retrieving nodes by various criteria\n5. Implement tree traversal and path finding algorithms\n6. Add support for storing and retrieving code snapshots via S3 URLs",
+        "testStrategy": "1. Unit tests for all CRUD operations\n2. Test constraint violations are properly handled\n3. Performance tests for large tree operations\n4. Verify correct path finding in complex tree structures\n5. Test concurrent access patterns",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Neo4j Schema and Constraints Setup",
+            "description": "Design and implement Neo4j database schema with proper constraints, indexes, and node/relationship types for decision tree storage",
+            "dependencies": [],
+            "details": "Create Neo4j schema with constraints for unique node IDs, reward indexes, and action indexes. Define node labels (DecisionNode, ActionNode) and relationship types (EXPLORED, PARENT_OF). Set up performance indexes for common query patterns.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "NodeRepository Class Implementation",
+            "description": "Implement the core NodeRepository class with Neo4j driver integration and connection management",
+            "dependencies": [
+              "4.1"
+            ],
+            "details": "Create NodeRepository class with Neo4j driver initialization, connection pooling, transaction management, and error handling. Include methods for database health checks and connection retry logic.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "CRUD Operations for Nodes",
+            "description": "Implement create, read, update, and delete operations for decision tree nodes with proper validation",
+            "dependencies": [
+              "4.2"
+            ],
+            "details": "Implement node creation with validation, node retrieval by ID and filters, node updates with optimistic locking, and safe node deletion with cascade handling. Include batch operations for performance.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Edge Operations and Relationships",
+            "description": "Implement relationship management between nodes including creation, traversal, and path finding operations",
+            "dependencies": [
+              "4.3"
+            ],
+            "details": "Create relationship operations for parent-child connections, action-based edges, and tree traversal. Implement path finding algorithms for decision tree navigation and cycle detection for data integrity.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Query Optimization and Indexing",
+            "description": "Optimize Neo4j queries for performance and implement advanced indexing strategies for large decision trees",
+            "dependencies": [
+              "4.4"
+            ],
+            "details": "Analyze query patterns and create composite indexes. Implement query optimization for tree traversal, reward-based searches, and node filtering. Add query monitoring and performance metrics collection.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "S3 Integration for Code Snapshots",
+            "description": "Integrate S3 storage for code snapshots linked to decision tree nodes with versioning and retrieval capabilities",
+            "dependencies": [
+              "4.3"
+            ],
+            "details": "Implement S3 client for code snapshot storage, create snapshot versioning strategy, link snapshots to Neo4j nodes via metadata, and implement efficient retrieval and cleanup operations for old snapshots.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Develop Claude Squad Integration",
+        "description": "Create the Claude Squad integration for parallel execution of Claude Code instances with git worktree isolation.",
+        "details": "1. Implement the bash script for setting up isolated worktrees\n2. Create Docker container for Claude Code execution:\n   ```dockerfile\n   FROM ubuntu:22.04\n   \n   RUN apt-get update && apt-get install -y \\\n       git tmux curl jq python3 python3-pip\n   \n   # Install Claude CLI\n   RUN pip3 install anthropic-claude-cli\n   \n   COPY run_parallel.sh /usr/local/bin/run_parallel\n   RUN chmod +x /usr/local/bin/run_parallel\n   \n   ENTRYPOINT [\"/usr/local/bin/run_parallel\"]\n   ```\n3. Implement the run_parallel.sh script with tmux session management\n4. Add webhook callback mechanism for action reporting\n5. Implement cleanup logic for completed sessions\n6. Create controller API for managing Claude Squad instances\n7. Add monitoring and health check endpoints",
+        "testStrategy": "1. Test worktree creation and isolation\n2. Verify tmux sessions are properly created and managed\n3. Test webhook callbacks with sample actions\n4. Verify proper cleanup of resources\n5. Load test with multiple parallel instances",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Git worktree isolation script",
+            "description": "Implement bash script for creating isolated git worktrees for each parallel Claude instance with proper configuration and security",
+            "dependencies": [],
+            "details": "Create setup_worktree.sh script that creates isolated git worktrees for each Claude instance. Include branch creation, environment isolation, permission settings, and worktree naming conventions. Ensure proper git configuration propagation and SSH key handling for authenticated operations.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Docker container configuration",
+            "description": "Design and implement secure Docker container configuration for Claude Code execution with resource limits and isolation",
+            "dependencies": [],
+            "details": "Create Dockerfile with Ubuntu 22.04 base, Claude CLI installation, security hardening (non-root user, read-only filesystem where possible), resource limits (CPU, memory), and networking restrictions. Include necessary tools (git, tmux, curl, jq) and proper volume mounts for worktree access.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "run_parallel.sh script with tmux",
+            "description": "Implement the main execution script using tmux for managing parallel Claude Code sessions with proper session management",
+            "dependencies": [
+              "5.1",
+              "5.2"
+            ],
+            "details": "Create run_parallel.sh that spawns tmux sessions for each Claude instance, manages session naming and window configuration, handles command execution and output capture. Include session monitoring, automatic restart on failure, and proper signal handling for graceful shutdown.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Webhook callback mechanism",
+            "description": "Implement webhook callback system for Claude instances to report actions and progress back to the orchestrator",
+            "dependencies": [
+              "5.3"
+            ],
+            "details": "Create callback mechanism using HTTP webhooks for action reporting (file edits, test runs, completions). Include authentication, retry logic, payload formatting, and buffering for high-frequency updates. Implement webhook endpoint in orchestrator to receive and process callbacks.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Resource cleanup logic",
+            "description": "Implement comprehensive cleanup system for completed sessions including worktrees, containers, and temporary resources",
+            "dependencies": [
+              "5.3",
+              "5.4"
+            ],
+            "details": "Create cleanup routines for removing git worktrees safely, terminating tmux sessions, cleaning Docker containers and volumes, and releasing allocated resources. Include garbage collection for orphaned resources, cleanup scheduling, and failure recovery mechanisms.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Controller API",
+            "description": "Develop REST API for programmatically managing Claude Squad instances with full lifecycle control",
+            "dependencies": [
+              "5.3",
+              "5.4",
+              "5.5"
+            ],
+            "details": "Implement REST API with endpoints for spawning new instances, querying instance status, sending commands to instances, retrieving logs and outputs, and terminating instances. Include authentication, rate limiting, request validation, and OpenAPI documentation.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Health monitoring",
+            "description": "Implement health monitoring and status checking system for running Claude instances with alerting capabilities",
+            "dependencies": [
+              "5.6"
+            ],
+            "details": "Create health check endpoints for instance liveness, resource usage monitoring (CPU, memory, disk), tmux session status verification, and git worktree integrity checks. Include metrics collection, alerting thresholds, automatic remediation for common issues, and integration with monitoring stack.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Implement State Management & Rollback",
+        "description": "Create the state management system with checkpointing and rollback capabilities using LangGraph and Neo4j.",
+        "details": "1. Implement OppieStateManager class:\n   ```python\n   class OppieStateManager:\n       def __init__(self, neo4j_driver, snapshot_storage, graph):\n           self.neo4j = neo4j_driver\n           self.snapshot_storage = snapshot_storage\n           self.graph = graph\n       \n       async def save_checkpoint(self, state: OppieState, node_id: str):\n           # Implementation as per design doc\n           \n       async def restore_from_node(self, node_id: str):\n           # Implementation as per design doc\n   ```\n2. Create S3/MinIO client for snapshot storage\n3. Implement serialization/deserialization of state\n4. Add git operations for code state management\n5. Integrate with LangGraph checkpointing\n6. Implement rollback strategy with proper cleanup\n7. Add transaction support for atomic operations",
+        "testStrategy": "1. Test checkpoint creation and retrieval\n2. Verify state can be properly restored\n3. Test rollback to various points in history\n4. Verify git state is correctly managed\n5. Test recovery from failures during checkpoint/restore",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and implement OppieStateManager class",
+            "description": "Create the core OppieStateManager class with initialization, checkpoint management, and integration points for Neo4j, S3, and LangGraph.",
+            "dependencies": [],
+            "details": "Implement the OppieStateManager class with constructor accepting neo4j_driver, snapshot_storage, and graph parameters. Include methods for checkpoint creation, state serialization, and integration with external systems. Focus on thread-safe operations and proper resource management.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement S3/MinIO snapshot storage system",
+            "description": "Create the snapshot storage layer for persisting state data to S3 or MinIO with versioning and metadata management.",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "Implement snapshot storage with automatic versioning, metadata tagging, and efficient serialization. Include compression for large states, retention policies, and proper error handling for network failures. Support both S3 and MinIO backends.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement state serialization and deserialization",
+            "description": "Create robust serialization mechanisms for OppieState objects with schema versioning and backward compatibility.",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "Implement efficient serialization using protocol buffers or similar binary format. Include schema versioning for forward/backward compatibility, handling of complex nested objects, and validation during deserialization. Support incremental serialization for large states.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement Git state management integration",
+            "description": "Create Git integration for tracking code changes alongside state checkpoints with branch and commit correlation.",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "Implement Git operations for creating tagged commits at checkpoint creation, branch management for different execution paths, and correlation between Git commits and state snapshots. Include conflict resolution and merge strategies for parallel executions.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement LangGraph checkpointing integration",
+            "description": "Integrate with LangGraph's checkpointing system to provide seamless state persistence and recovery for graph execution.",
+            "dependencies": [
+              "6.1",
+              "6.2",
+              "6.3"
+            ],
+            "details": "Implement LangGraph checkpoint hooks, custom checkpoint serializers, and graph state synchronization. Include support for partial checkpoints, async checkpoint creation, and proper handling of graph interruption/resumption scenarios.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement rollback mechanism with transaction support",
+            "description": "Create comprehensive rollback functionality with atomic operations across Neo4j, S3, and Git systems.",
+            "dependencies": [
+              "6.2",
+              "6.3",
+              "6.4",
+              "6.5"
+            ],
+            "details": "Implement multi-system rollback with two-phase commit protocol, compensation transactions for failed rollbacks, and consistency verification. Include support for partial rollbacks, cascade rollback handling, and rollback validation with integrity checks.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Implement transaction support and data consistency guarantees",
+            "description": "Add comprehensive transaction management with ACID properties across distributed systems and recovery mechanisms.",
+            "dependencies": [
+              "6.5",
+              "6.6"
+            ],
+            "details": "Implement distributed transaction coordinator, deadlock detection and resolution, and consistency validation across all storage systems. Include support for nested transactions, transaction timeouts, and automatic recovery from partial failures with detailed logging and monitoring.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Create Structured Imagination Module",
+        "description": "Implement the Structured Imagination Module for pre-simulating actions without execution.",
+        "details": "1. Create ImaginationModule class:\n   ```python\n   class ImaginationModule:\n       def __init__(self, llm, code_analyzer):\n           self.llm = llm  # Claude API client\n           self.analyzer = code_analyzer  # Static analysis tool\n       \n       async def imagine_scenarios(self, current_state, proposed_actions):\n           # Implementation as per design doc\n           \n       def _calculate_confidence(self, prediction, analysis):\n           # Combine LLM confidence with static analysis results\n           llm_confidence = prediction.confidence\n           static_confidence = 1.0 - min(1.0, len(analysis.identified_risks) * 0.1)\n           return llm_confidence * static_confidence\n   ```\n2. Implement code analyzer with static analysis tools\n3. Create prompt templates for imagination scenarios\n4. Implement confidence calculation algorithm\n5. Add caching for similar scenarios\n6. Create visualization for imagined outcomes",
+        "testStrategy": "1. Test imagination with sample code and actions\n2. Verify confidence calculation with various inputs\n3. Compare imagined outcomes with actual execution\n4. Measure prediction accuracy over time\n5. Test with edge cases and complex code structures",
+        "priority": "medium",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "ImaginationModule class structure",
+            "description": "Design and implement the core ImaginationModule class with initialization, method signatures, and basic infrastructure for scenario prediction",
+            "dependencies": [],
+            "details": "Create the ImaginationModule class with constructor accepting llm and code_analyzer parameters. Implement async imagine_scenarios method signature and basic class structure. Set up proper typing and documentation. Include error handling framework and logging setup.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Code analyzer integration",
+            "description": "Integrate static code analysis capabilities to provide context for LLM predictions and enhance imagination accuracy",
+            "dependencies": [
+              "7.1"
+            ],
+            "details": "Implement integration with static analysis tools (AST parsing, dependency analysis, type checking). Create methods to extract relevant code context, identify potential side effects, and analyze code complexity. Establish data flow analysis to understand variable mutations and function calls.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "LLM prompt templates",
+            "description": "Create structured prompt templates for Claude API to generate accurate scenario predictions based on code analysis",
+            "dependencies": [
+              "7.1",
+              "7.2"
+            ],
+            "details": "Design prompt templates that combine static analysis results with code context for Claude API calls. Include templates for different scenario types (file modifications, test outcomes, build results). Implement prompt optimization for consistency and accuracy. Add few-shot examples and structured output formatting.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Confidence calculation algorithm",
+            "description": "Implement the confidence scoring algorithm that combines LLM confidence with static analysis reliability metrics",
+            "dependencies": [
+              "7.2",
+              "7.3"
+            ],
+            "details": "Create _calculate_confidence method that weighs LLM prediction confidence against static analysis certainty. Implement scoring algorithm considering code complexity, analysis depth, and historical accuracy. Include calibration mechanisms and threshold determination for actionable predictions.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Scenario caching system",
+            "description": "Implement caching mechanism for scenario predictions to optimize performance and reduce API calls",
+            "dependencies": [
+              "7.3",
+              "7.4"
+            ],
+            "details": "Design and implement Redis-based caching for scenario predictions with appropriate cache keys based on code state and proposed actions. Include cache invalidation strategies, TTL management, and cache hit/miss metrics. Implement cache warming and preemptive scenario generation for common patterns.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Implement Self-Play Training Loop",
+        "description": "Create the self-play training system for generating challenges and improving solution strategies.",
+        "details": "1. Implement SelfPlayTrainer class:\n   ```python\n   class SelfPlayTrainer:\n       def __init__(self, oppie_system, challenge_db):\n           self.system = oppie_system\n           self.challenge_db = challenge_db\n       \n       async def generate_training_data(self):\n           # Implementation as per design doc\n           \n       def create_challenge_from_failures(self):\n           # Analyze past failures to create targeted challenges\n           failures = self.challenge_db.get_recent_failures(limit=50)\n           patterns = self.extract_failure_patterns(failures)\n           return self.generate_challenge(patterns)\n           \n       def mutate_challenge(self, challenge, results):\n           # Create harder variant based on results\n           successful_solution = next((r for r in results if r.success), None)\n           if not successful_solution:\n               return self.simplify_challenge(challenge)\n           \n           return self.increase_difficulty(challenge, successful_solution)\n   ```\n2. Implement ChallengeDatabase for storing challenges and solutions\n3. Create challenge generation logic based on failure patterns\n4. Implement difficulty adjustment algorithms\n5. Add metrics collection for solution quality\n6. Create scheduling system for background training",
+        "testStrategy": "1. Test challenge generation from sample failures\n2. Verify solution storage and retrieval\n3. Test difficulty adjustment with various inputs\n4. Measure improvement in solution quality over time\n5. Verify resource usage during training",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Develop Episodic Memory System",
+        "description": "Implement the Episodic Memory System for storing and recalling similar solutions.",
+        "details": "1. Implement EpisodicMemory class:\n   ```python\n   class EpisodicMemory:\n       def __init__(self, vector_db, neo4j):\n           self.vector_db = vector_db  # Vector database client\n           self.graph_db = neo4j       # Neo4j driver\n       \n       def remember_solution(self, task, solution, context):\n           # Implementation as per design doc\n           \n       def recall_similar(self, new_task, limit=5):\n           # Implementation as per design doc\n           \n       def embed_task(self, task):\n           # Generate embedding for task description\n           return self.vector_db.embed_text(task.description)\n   ```\n2. Set up vector database for semantic search\n3. Create Neo4j schema for task-solution relationships\n4. Implement embedding generation for tasks\n5. Add similarity search functionality\n6. Create graph enrichment for context retrieval\n7. Implement pattern mining for solution strategies",
+        "testStrategy": "1. Test solution storage and retrieval\n2. Verify embedding generation for various tasks\n3. Test similarity search with related tasks\n4. Measure recall precision and accuracy\n5. Test with large dataset of historical solutions",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement Security Enhancements",
+        "description": "Implement security features including container isolation, code execution sandboxing, and credential management.",
+        "details": "1. Configure Docker container isolation:\n   ```dockerfile\n   # Enhanced security for Claude Code container\n   FROM ubuntu:22.04\n   \n   # Make root filesystem read-only\n   RUN chmod a-w /bin /boot /lib /lib64 /sbin /usr\n   \n   # Add seccomp profile\n   COPY seccomp-claude.json /etc/docker/seccomp-claude.json\n   \n   # Setup non-root user\n   RUN useradd -m -s /bin/bash claude\n   USER claude\n   \n   # Rest of container setup\n   ```\n2. Implement nested container for test execution:\n   ```typescript\n   async function runTestsInSandbox(code: string, tests: string): Promise<TestResult> {\n     const container = await docker.createContainer({\n       Image: 'oppie-test-sandbox',\n       HostConfig: {\n         ReadonlyRootfs: true,\n         Memory: 512 * 1024 * 1024, // 512MB limit\n         CpuQuota: 100000, // 10% of CPU\n         NetworkMode: 'none',\n         SecurityOpt: ['no-new-privileges'],\n         TmpFs: { '/tmp': 'rw,noexec,nosuid' }\n       }\n     });\n     \n     // Copy code and tests to container\n     // Run tests with timeout\n     // Return results\n   }\n   ```\n3. Implement AWS credential provider with rotation\n4. Add audit logging for all operations\n5. Implement least-privilege IAM policies\n6. Create security monitoring and alerting",
+        "testStrategy": "1. Verify container isolation with penetration testing\n2. Test resource limits are enforced\n3. Verify credential rotation works correctly\n4. Test audit logging captures all relevant events\n5. Verify least-privilege policies prevent unauthorized access",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Implement Performance Optimizations",
+        "description": "Implement performance optimizations including intelligent pruning, caching strategy, and resource management.",
+        "details": "1. Implement intelligent pruning for MCTS:\n   ```python\n   def should_prune_branch(self, state, action, static_analysis):\n       # Early test failures\n       if state.test_results and state.test_results.failure_count > state.test_results.previous_failure_count:\n           return True\n       \n       # Static analysis warnings\n       if static_analysis.critical_issues > 0:\n           return True\n       \n       # Historical failure patterns\n       similar_actions = self.memory.find_similar_actions(action)\n       failure_rate = sum(1 for a in similar_actions if not a.success) / max(1, len(similar_actions))\n       return failure_rate > 0.8  # 80% failure threshold\n   ```\n2. Implement Redis caching for hot decision paths\n3. Configure S3/MinIO with CDN for code snapshots\n4. Set up Neo4j query result caching\n5. Implement dynamic scaling of Claude instances\n6. Add automatic cleanup of stale worktrees\n7. Implement memory-mapped file sharing for large codebases",
+        "testStrategy": "1. Benchmark pruning effectiveness with sample workloads\n2. Measure cache hit rates under various scenarios\n3. Test dynamic scaling with simulated load\n4. Verify cleanup correctly reclaims resources\n5. Measure end-to-end performance improvements",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          4,
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Set Up Container Orchestration",
+        "description": "Configure Docker Compose for container orchestration with resource limits and service dependencies.",
+        "details": "1. Create docker-compose.yml with all services:\n   ```yaml\n   # docker-compose.yml\n   version: '3.8'\n   \n   services:\n     oppie-orchestrator:\n       build: ./services/orchestrator\n       environment:\n         - LANGGRAPH_CHECKPOINT_STORE=neo4j\n         - PARALLEL_BRANCHES=${OPPIE_PARALLEL_BRANCHES:-8}\n         - MAX_SEARCH_DEPTH=${OPPIE_MAX_DEPTH:-6}\n       depends_on:\n         - neo4j\n         - redis\n         - minio\n       deploy:\n         resources:\n           limits:\n             cpus: '4'\n             memory: 8G\n     \n     # Additional services as per design doc\n   ```\n2. Configure volume mounts for persistent storage\n3. Set up environment variables for configuration\n4. Configure resource limits for all services\n5. Add health checks for service dependencies\n6. Implement restart policies for resilience\n7. Create development and production configurations",
+        "testStrategy": "1. Test container startup and shutdown\n2. Verify service dependencies are respected\n3. Test resource limits are enforced\n4. Verify volume mounts persist data correctly\n5. Test with simulated service failures",
+        "priority": "high",
+        "dependencies": [
+          1,
+          4,
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Implement High Availability Features",
+        "description": "Implement high availability features including multi-region deployment, Neo4j clustering, and Redis Sentinel.",
+        "details": "1. Configure Neo4j cluster:\n   ```yaml\n   # neo4j-cluster.yaml\n   services:\n     neo4j-core:\n       image: neo4j:5-enterprise\n       environment:\n         - NEO4J_dbms_mode=CORE\n         - NEO4J_causal__clustering_discovery__type=DNS\n         - NEO4J_causal__clustering_initial__discovery__members=neo4j-core-0.neo4j.default.svc.cluster.local:5000,neo4j-core-1.neo4j.default.svc.cluster.local:5000,neo4j-core-2.neo4j.default.svc.cluster.local:5000\n       volumes:\n         - neo4j_data:/data\n   ```\n2. Set up Redis Sentinel for queue resilience\n3. Configure multi-region deployment with Terraform\n4. Implement read replicas for Neo4j\n5. Create failover mechanisms for all services\n6. Add load balancing for API endpoints\n7. Implement circuit breakers for service dependencies",
+        "testStrategy": "1. Test Neo4j cluster failover\n2. Verify Redis Sentinel correctly promotes new master\n3. Test multi-region failover scenarios\n4. Measure recovery time after simulated failures\n5. Verify data consistency across replicas",
+        "priority": "medium",
+        "dependencies": [
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Set Up Monitoring and Alerting",
+        "description": "Implement monitoring and alerting with Prometheus, Grafana, and custom alerts.",
+        "details": "1. Configure Prometheus for metrics collection:\n   ```yaml\n   # prometheus.yml\n   global:\n     scrape_interval: 15s\n   \n   scrape_configs:\n     - job_name: 'oppie-services'\n       static_configs:\n         - targets: ['oppie-orchestrator:9090', 'claude-squad-controller:9090', 'webhook-processor:9090']\n   ```\n2. Create Grafana dashboards for tree search visualization\n3. Implement custom metrics for MCTS performance\n4. Set up alerts for stuck branches or resource exhaustion\n5. Create logging pipeline with ELK stack\n6. Implement distributed tracing with Jaeger\n7. Create operational runbooks for common issues",
+        "testStrategy": "1. Verify metrics are correctly collected\n2. Test alert triggering with simulated conditions\n3. Verify dashboard displays accurate information\n4. Test log aggregation and search\n5. Verify tracing captures end-to-end request flow",
+        "priority": "medium",
+        "dependencies": [
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Implement Backup Strategy",
+        "description": "Implement backup strategy with Neo4j backups, S3 versioning, and disaster recovery runbooks.",
+        "details": "1. Configure Neo4j backups:\n   ```bash\n   #!/bin/bash\n   # neo4j-backup.sh\n   \n   TIMESTAMP=$(date +%Y%m%d%H%M)\n   BACKUP_DIR=/backups/neo4j/$TIMESTAMP\n   \n   mkdir -p $BACKUP_DIR\n   \n   neo4j-admin backup \\\n     --backup-dir=$BACKUP_DIR \\\n     --name=oppie-graph \\\n     --database=neo4j \\\n     --from=neo4j://neo4j:7687\n   \n   # Upload to S3\n   aws s3 cp $BACKUP_DIR s3://oppie-backups/neo4j/$TIMESTAMP --recursive\n   ```\n2. Enable S3 versioning for code snapshots\n3. Create disaster recovery runbooks\n4. Implement point-in-time recovery for Neo4j\n5. Set up automated backup testing\n6. Create backup rotation and retention policies\n7. Implement backup monitoring and alerting",
+        "testStrategy": "1. Test backup creation and verification\n2. Verify restore from backup works correctly\n3. Test point-in-time recovery scenarios\n4. Verify S3 versioning preserves all versions\n5. Test disaster recovery procedures",
+        "priority": "medium",
+        "dependencies": [
+          4,
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Develop Tree Visualization Component",
+        "description": "Implement the React Flow-based tree visualization component for the PWA dashboard.",
+        "details": "1. Create React component for tree visualization:\n   ```typescript\n   // TreeVisualizer.tsx\n   import React, { useEffect, useState } from 'react';\n   import ReactFlow, { \n     Node, Edge, Controls, Background, \n     NodeTypes, EdgeTypes \n   } from 'react-flow-renderer';\n   \n   // Custom node types\n   const customNodeTypes: NodeTypes = {\n     decisionNode: DecisionNode,\n   };\n   \n   export const TreeVisualizer: React.FC = () => {\n     const [nodes, setNodes] = useState<Node[]>([]);\n     const [edges, setEdges] = useState<Edge[]>([]);\n     \n     useEffect(() => {\n       // Fetch tree data from API\n       fetchTreeData().then(data => {\n         setNodes(data.nodes);\n         setEdges(data.edges);\n       });\n       \n       // Set up WebSocket for real-time updates\n       const ws = new WebSocket('ws://api.oppie.ai/tree-updates');\n       ws.onmessage = (event) => {\n         const update = JSON.parse(event.data);\n         updateTree(update);\n       };\n       \n       return () => ws.close();\n     }, []);\n     \n     // Implementation of tree update logic\n     \n     return (\n       <div style={{ height: '80vh', width: '100%' }}>\n         <ReactFlow\n           nodes={nodes}\n           edges={edges}\n           nodeTypes={customNodeTypes}\n           onNodeClick={handleNodeClick}\n           fitView\n         >\n           <Controls />\n           <Background />\n         </ReactFlow>\n       </div>\n     );\n   };\n   ```\n2. Implement custom node and edge types\n3. Create API client for fetching tree data\n4. Set up WebSocket for real-time updates\n5. Implement node inspection functionality\n6. Add branch comparison tools\n7. Create tree layout algorithms for optimal visualization",
+        "testStrategy": "1. Test rendering with sample tree data\n2. Verify WebSocket updates are correctly applied\n3. Test node inspection functionality\n4. Verify branch comparison tools work correctly\n5. Test with large trees for performance",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Implement Metrics Dashboard",
+        "description": "Create the metrics dashboard with token usage charts, success rate trends, and cost analysis.",
+        "details": "1. Implement metrics components:\n   ```typescript\n   // MetricsPanel.tsx\n   import React from 'react';\n   import { TokenUsageChart } from './charts/TokenUsageChart';\n   import { SuccessRateGauge } from './charts/SuccessRateGauge';\n   import { CostProjection } from './charts/CostProjection';\n   import { useMetrics } from '../hooks/useMetrics';\n   \n   export const MetricsPanel: React.FC = () => {\n     const { metrics, loading, error } = useMetrics();\n     \n     if (loading) return <div>Loading metrics...</div>;\n     if (error) return <div>Error loading metrics: {error.message}</div>;\n     \n     return (\n       <div className=\"metrics-panel\">\n         <div className=\"metrics-row\">\n           <TokenUsageChart data={metrics.tokens} />\n           <SuccessRateGauge value={metrics.successRate} />\n         </div>\n         <div className=\"metrics-row\">\n           <CostProjection branches={metrics.activeBranches} />\n           <div className=\"metrics-summary\">\n             <h3>Summary</h3>\n             <p>Total Tokens: {metrics.tokens.total.toLocaleString()}</p>\n             <p>Active Branches: {metrics.activeBranches.length}</p>\n             <p>Avg. Time to Solution: {metrics.avgTimeToSolution}s</p>\n           </div>\n         </div>\n       </div>\n     );\n   };\n   ```\n2. Implement token usage chart with D3.js\n3. Create success rate gauge component\n4. Implement cost projection calculator\n5. Create metrics API client\n6. Set up real-time metrics updates\n7. Add time-range selection for historical data",
+        "testStrategy": "1. Test rendering with sample metrics data\n2. Verify calculations are correct\n3. Test time-range selection\n4. Verify real-time updates are applied\n5. Test with various data scenarios",
+        "priority": "medium",
+        "dependencies": [
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Develop Control Panel",
+        "description": "Implement the control panel with branch controller, resource allocator, and emergency stop functionality.",
+        "details": "1. Create control panel components:\n   ```typescript\n   // ControlPanel.tsx\n   import React from 'react';\n   import { BranchController } from './controls/BranchController';\n   import { ResourceAllocator } from './controls/ResourceAllocator';\n   import { EmergencyStop } from './controls/EmergencyStop';\n   \n   export const ControlPanel: React.FC = () => {\n     return (\n       <div className=\"control-panel\">\n         <h2>Control Panel</h2>\n         <BranchController />\n         <ResourceAllocator />\n         <EmergencyStop />\n       </div>\n     );\n   };\n   ```\n2. Implement branch controller for priority adjustment\n3. Create resource allocator for CPU/memory allocation\n4. Implement emergency stop functionality\n5. Add API client for control operations\n6. Create confirmation dialogs for critical actions\n7. Implement access control for administrative functions",
+        "testStrategy": "1. Test UI rendering and interactions\n2. Verify API calls are correctly made\n3. Test confirmation dialogs\n4. Verify access control restrictions\n5. Test emergency stop functionality",
+        "priority": "medium",
+        "dependencies": [
+          16,
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Create PWA Frontend",
+        "description": "Implement the Progressive Web App frontend with React and service workers.",
+        "details": "1. Set up React application with TypeScript:\n   ```bash\n   npx create-react-app oppie-dashboard --template typescript\n   cd oppie-dashboard\n   npm install react-flow-renderer d3 @mui/material @emotion/react @emotion/styled\n   ```\n2. Configure service worker for offline support\n3. Implement responsive layout with Material UI\n4. Create authentication with JWT\n5. Set up routing with React Router\n6. Implement dark/light theme support\n7. Add PWA manifest and icons",
+        "testStrategy": "1. Test PWA installation and offline functionality\n2. Verify responsive layout on various devices\n3. Test authentication flow\n4. Verify routing works correctly\n5. Test theme switching",
+        "priority": "medium",
+        "dependencies": [
+          16,
+          17,
+          18
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Implement End-to-End Integration and Testing",
+        "description": "Integrate all components and perform end-to-end testing of the complete system.",
+        "details": "1. Create integration test suite:\n   ```typescript\n   // integration-tests.ts\n   import { test } from 'ava';\n   import { OppieClient } from './test-utils/client';\n   import { setupTestEnvironment, teardownTestEnvironment } from './test-utils/environment';\n   \n   test.before(async t => {\n     t.context.env = await setupTestEnvironment();\n     t.context.client = new OppieClient(t.context.env.apiUrl);\n   });\n   \n   test.after.always(async t => {\n     await teardownTestEnvironment(t.context.env);\n   });\n   \n   test('End-to-end GitHub issue workflow', async t => {\n     // Create mock GitHub issue event\n     const event = createMockGitHubEvent('issue_comment', {\n       body: '/oppie implement a login form with React and Firebase auth'\n     });\n     \n     // Send to webhook\n     const response = await t.context.client.sendWebhook(event);\n     t.is(response.status, 200);\n     \n     // Wait for job to be processed\n     const jobId = response.data.jobId;\n     const result = await t.context.client.waitForJobCompletion(jobId);\n     \n     // Verify results\n     t.true(result.success);\n     t.true(result.pullRequest.url.includes('github.com'));\n     t.true(result.tests.passed > 0);\n   });\n   ```\n2. Set up test environment with Docker Compose\n3. Create mock GitHub webhook events\n4. Implement test client for API interactions\n5. Add test cases for various scenarios\n6. Create performance benchmarks\n7. Implement CI/CD pipeline for automated testing",
+        "testStrategy": "1. Run end-to-end tests with various GitHub events\n2. Measure performance metrics\n3. Verify all components interact correctly\n4. Test error handling and recovery\n5. Verify security measures are effective",
+        "priority": "high",
+        "dependencies": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Integration test framework setup",
+            "description": "Set up the testing framework and dependencies for end-to-end testing",
+            "dependencies": [],
+            "details": "Configure test runner (Jest/Ava), install testing dependencies (@testing-library, supertest), set up test environment configuration files. Create base test utilities and helpers for common operations.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Test environment configuration",
+            "description": "Configure test environments including database, API endpoints, and external service mocks",
+            "dependencies": [
+              "20.1"
+            ],
+            "details": "Set up isolated test databases (Neo4j, Redis), configure MinIO for test object storage, create Docker Compose configuration for test environment. Implement test data seeding and cleanup mechanisms.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Mock GitHub event creation",
+            "description": "Create mock GitHub webhook events for testing various scenarios",
+            "dependencies": [
+              "20.1"
+            ],
+            "details": "Build factory functions for creating GitHub webhook events (issues, PRs, comments), include edge cases and error scenarios, create fixtures for complex repository states. Support all GitHub event types used by the system.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "API test client implementation",
+            "description": "Implement a test client for making API requests and validating responses",
+            "dependencies": [
+              "20.1"
+            ],
+            "details": "Create OppieClient class for API interactions, implement methods for all API endpoints, add response validation and error handling. Include authentication handling and request/response logging for debugging.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Scenario-based test cases",
+            "description": "Write comprehensive test cases covering different user scenarios and workflows",
+            "dependencies": [
+              "20.2",
+              "20.3",
+              "20.4"
+            ],
+            "details": "Implement tests for complete GitHub workflows (issue to PR), test MCTS tree exploration scenarios, verify state management and rollback operations. Include tests for edge cases, concurrent operations, and failure recovery.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Performance benchmarking",
+            "description": "Implement performance tests to measure response times and throughput",
+            "dependencies": [
+              "20.5"
+            ],
+            "details": "Create load testing scenarios with k6 or Artillery, measure MCTS performance with varying tree depths, benchmark Neo4j query performance. Set up performance regression detection and reporting.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "CI/CD pipeline integration",
+            "description": "Integrate end-to-end tests into the continuous integration and deployment pipeline",
+            "dependencies": [
+              "20.5",
+              "20.6"
+            ],
+            "details": "Update GitHub Actions workflow to run E2E tests, configure test result reporting and artifacts, implement test parallelization for faster execution. Add gates for deployment based on test results.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 8,
+            "title": "Error handling validation",
+            "description": "Test error scenarios and validate proper error handling and recovery mechanisms",
+            "dependencies": [
+              "20.5"
+            ],
+            "details": "Test service failure scenarios (Neo4j down, Redis unavailable), verify graceful degradation and recovery, test timeout handling and retry logic. Validate error messages and logging for debugging.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "created": "2025-07-24T07:06:33.076Z",
+      "updated": "2025-07-24T08:00:17.895Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
