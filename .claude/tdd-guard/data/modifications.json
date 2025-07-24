@@ -1,0 +1,11 @@
+{
+  "session_id": "18f8fbaa-c1cd-43f7-9eac-aa48404cec34",
+  "transcript_path": "/home/tyb90/.claude/projects/-mnt-c-Users-tyb90-Projects-oppie/18f8fbaa-c1cd-43f7-9eac-aa48404cec34.jsonl",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/home/tyb90/Projects/oppie/claude-hub-fork/src/services/orchestrator/index.ts",
+    "old_string": "export { MCTSOrchestrator } from './MCTSOrchestrator';\nexport { TaskPlanner } from './TaskPlanner';\nexport { StateManager } from './StateManager';\nexport * from './types';\nEOF < /dev/llnu;",
+    "new_string": "export { MCTSOrchestrator } from './MCTSOrchestrator';\nexport { TaskPlanner } from './TaskPlanner';\nexport { StateManager } from './StateManager';\nexport * from './types';"
+  }
+}

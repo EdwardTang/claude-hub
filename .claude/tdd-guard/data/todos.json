@@ -1,0 +1,70 @@
+{
+  "session_id": "18f8fbaa-c1cd-43f7-9eac-aa48404cec34",
+  "transcript_path": "/home/tyb90/.claude/projects/-mnt-c-Users-tyb90-Projects-oppie/18f8fbaa-c1cd-43f7-9eac-aa48404cec34.jsonl",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "TodoWrite",
+  "tool_input": {
+    "todos": [
+      {
+        "content": "Create service directories structure",
+        "status": "completed",
+        "priority": "high",
+        "id": "1"
+      },
+      {
+        "content": "Create storage configuration directories",
+        "status": "completed",
+        "priority": "high",
+        "id": "2"
+      },
+      {
+        "content": "Create shared directories",
+        "status": "completed",
+        "priority": "high",
+        "id": "3"
+      },
+      {
+        "content": "Create index files for orchestrator service",
+        "status": "completed",
+        "priority": "high",
+        "id": "4"
+      },
+      {
+        "content": "Create index files for claude-squad service",
+        "status": "completed",
+        "priority": "high",
+        "id": "5"
+      },
+      {
+        "content": "Create index files for webhook-enhanced service",
+        "status": "completed",
+        "priority": "high",
+        "id": "6"
+      },
+      {
+        "content": "Create storage configuration files",
+        "status": "completed",
+        "priority": "high",
+        "id": "7"
+      },
+      {
+        "content": "Create shared types and utils",
+        "status": "completed",
+        "priority": "high",
+        "id": "8"
+      },
+      {
+        "content": "Add README files for each module",
+        "status": "completed",
+        "priority": "medium",
+        "id": "9"
+      },
+      {
+        "content": "Commit directory structure",
+        "status": "completed",
+        "priority": "high",
+        "id": "10"
+      }
+    ]
+  }
+}
